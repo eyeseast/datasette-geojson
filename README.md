@@ -15,7 +15,42 @@ Install this plugin in the same environment as Datasette.
 
 ## Usage
 
-To render GeoJSON, add a `.geojson` extension to any query URL.
+To render GeoJSON, add a `.geojson` extension to any query URL that includes a `geometry` column. That column should be a valid [GeoJSON geometry](https://datatracker.ietf.org/doc/html/rfc7946#section-3.1).
+
+For example, you might use [geojson-to-sqlite](https://pypi.org/project/geojson-to-sqlite/) or [shapefile-to-sqlite](https://pypi.org/project/shapefile-to-sqlite/) to load [neighborhood boundaries](https://bostonopendata-boston.opendata.arcgis.com/datasets/3525b0ee6e6b427f9aab5d0a1d0a1a28_0/explore) into a SQLite database.
+
+```sh
+wget -O neighborhoods.geojson https://opendata.arcgis.com/datasets/3525b0ee6e6b427f9aab5d0a1d0a1a28_0.geojson
+geojson-to-sqlite boston.db neighborhoods neighborhoods.geojson --spatial-index # create a spatial index
+datasette serve boston.db --load-extension spatialite
+```
+
+If you're using Spatialite, the geometry column will be in a binary format. Convert it back to regular GeoJSON with the `AsGeoJSON` function:
+
+```sql
+select
+  rowid,
+  OBJECTID,
+  Name,
+  Acres,
+  Neighborhood_ID,
+  SqMiles,
+  ShapeSTArea,
+  ShapeSTLength,
+  AsGeoJSON(geometry) as geometry
+from
+  neighborhoods
+order by
+  rowid
+limit
+  101
+```
+
+Note that the geometry column needs to be explicitly converted to GeoJSON and _named_ `geometry` or you won't get the option to export GeoJSON. Run this query in Datasette and you'll see a link to download GeoJSON:
+
+![export geojson](img/export-options.png)
+
+_If you're not using Spatialite, you can skip running `AsGeoJSON`, because the column will already be in the right format._
 
 ## Development
 
@@ -36,3 +71,7 @@ Now install the dependencies and tests:
 To run the tests:
 
     pytest
+
+```
+
+```
