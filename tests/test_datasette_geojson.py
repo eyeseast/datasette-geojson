@@ -12,8 +12,6 @@ DATA = Path(__file__).parent / "data"
 NEIGHBORHOODS = DATA / "Boston_Neighborhoods.geojson"
 TABLE_NAME = "neighborhoods"
 
-SQL = f"SELECT Name, geometry FROM {TABLE_NAME}"
-
 
 @pytest.fixture
 def feature_collection():
@@ -23,7 +21,7 @@ def feature_collection():
 @pytest.fixture
 def spatial_database(tmp_path, feature_collection):
     db_path = tmp_path / "spatial.db"
-    import_features(db_path, TABLE_NAME, feature_collection, spatialite=True)
+    import_features(db_path, TABLE_NAME, feature_collection.features, spatialite=True)
     return db_path
 
 
@@ -61,16 +59,40 @@ async def test_render_feature_collection(database, feature_collection):
     url = datasette.urls.table(database.stem, TABLE_NAME, format="geojson")
 
     response = await datasette.client.get(url)
-    fc = response.json()
-
     assert 200 == response.status_code
 
+    fc = response.json()
     assert fc["type"] == "FeatureCollection"
     assert len(feature_collection["features"]) == len(fc["features"])
 
     for feature, expected in zip(fc["features"], feature_collection["features"]):
         row_id = feature["properties"].pop("rowid")  # sqlite adds this
         assert feature["properties"] == expected["properties"]
+        assert feature["geometry"] == expected["geometry"]
+
+
+@pytest.mark.asyncio
+async def test_render_spatialite_table(spatial_database, feature_collection):
+    datasette = Datasette([str(spatial_database)], sqlite_extensions=["spatialite"])
+
+    SQL = f"SELECT Name, AsGeoJSON(geometry) as geometry FROM {TABLE_NAME}"
+
+    # query url
+    url = (
+        datasette.urls.database(spatial_database.stem, format="geojson")
+        + "?"
+        + urlencode({"sql": SQL})
+    )
+
+    response = await datasette.client.get(url)
+    fc = response.json()
+
+    assert 200 == response.status_code
+    assert fc["type"] == "FeatureCollection"
+    assert len(feature_collection["features"]) == len(fc["features"])
+
+    for feature, expected in zip(fc["features"], feature_collection["features"]):
+        assert feature["properties"]["Name"] == expected["properties"]["Name"]
         assert feature["geometry"] == expected["geometry"]
 
 
