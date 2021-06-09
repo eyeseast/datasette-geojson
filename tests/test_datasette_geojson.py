@@ -1,3 +1,4 @@
+import io
 import geojson
 import pytest
 
@@ -109,9 +110,8 @@ async def test_render_spatialite_blob(spatial_database, feature_collection):
         + urlencode({"sql": SQL})
     )
 
-    with pytest.raises(ValueError) as e:
-        response = await datasette.client.get(url)
-        assert 500 == response.status_code  # we expect this to fail, for now
+    response = await datasette.client.get(url)
+    assert 500 == response.status_code  # we expect this to fail, for now
 
     # fc = response.json()
     # assert fc["type"] == "FeatureCollection"
@@ -123,6 +123,31 @@ async def test_render_spatialite_blob(spatial_database, feature_collection):
 
 
 @pytest.mark.asyncio
+async def test_render_geojson_newlines(database, feature_collection):
+    datasette = Datasette([str(database)])
+
+    # build a url
+    url = (
+        datasette.urls.table(database.stem, TABLE_NAME, format="geojson")
+        + "?"
+        + urlencode({"_nl": True})
+    )
+
+    response = await datasette.client.get(url)
+    assert 200 == response.status_code
+
+    features = list(decode_json_newlines(io.StringIO(response.text)))
+
+    assert len(features) == len(feature_collection.features)
+    assert all(f.is_valid for f in features)
+
+    for feature, expected in zip(features, feature_collection["features"]):
+        row_id = feature["properties"].pop("rowid")  # sqlite adds this
+        assert feature["properties"] == expected["properties"]
+        assert feature["geometry"] == expected["geometry"]
+
+
+@pytest.mark.asyncio
 async def test_rows_to_geojson(database, feature_collection):
     datasette = Datasette([database], sqlite_extensions=["spatialite"])
     db = datasette.get_database("test")
@@ -131,3 +156,8 @@ async def test_rows_to_geojson(database, feature_collection):
     features = list(map(row_to_geojson, results.rows))
 
     assert all(f.is_valid for f in features)
+
+
+def decode_json_newlines(file):
+    for line in file:
+        yield geojson.loads(line.strip())
