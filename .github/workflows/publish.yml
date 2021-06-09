@@ -23,6 +23,9 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+      - name: Install SpatiaLite
+        run: |
+          sudo apt-get install libsqlite3-mod-spatialite
       - name: Install dependencies
         run: |
           pip install -e '.[test]'
@@ -45,9 +48,6 @@ jobs:
           key: ${{ runner.os }}-publish-pip-${{ hashFiles('**/setup.py') }}
           restore-keys: |
             ${{ runner.os }}-publish-pip-
-      - name: Install SpatiaLite
-        run: |
-          sudo apt-get install libsqlite3-mod-spatialite
       - name: Install dependencies
         run: |
           pip install setuptools wheel twine
