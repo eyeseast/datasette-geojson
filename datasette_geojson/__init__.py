@@ -44,7 +44,10 @@ def parse_geometry(geometry):
     if isinstance(geometry, dict):
         return geometry
 
-    if isinstance(geometry, (str, bytes)):
+    if isinstance(geometry, str):
         return geojson.loads(geometry)
+
+    if isinstance(geometry, bytes):
+        raise ValueError("Can't parse geometry blob")
 
     raise ValueError("Unknown type")
