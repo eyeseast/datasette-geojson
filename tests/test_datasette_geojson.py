@@ -96,6 +96,31 @@ async def test_render_spatialite_table(spatial_database, feature_collection):
         assert feature["geometry"] == expected["geometry"]
 
 
+@pytest.mark.asycio
+async def test_render_spatialite_blob(spatial_database, feature_collection):
+    datasette = Datasette([str(spatial_database)], sqlite_extensions=["spatialite"])
+
+    SQL = f"SELECT Name, geometry FROM {TABLE_NAME}"
+
+    # query url
+    url = (
+        datasette.urls.database(spatial_database.stem, format="geojson")
+        + "?"
+        + urlencode({"sql": SQL})
+    )
+
+    response = await datasette.client.get(url)
+    fc = response.json()
+
+    assert 200 == response.status_code
+    assert fc["type"] == "FeatureCollection"
+    assert len(feature_collection["features"]) == len(fc["features"])
+
+    for feature, expected in zip(fc["features"], feature_collection["features"]):
+        assert feature["properties"]["Name"] == expected["properties"]["Name"]
+        assert feature["geometry"] == expected["geometry"]
+
+
 @pytest.mark.asyncio
 async def test_rows_to_geojson(database, feature_collection):
     datasette = Datasette([database], sqlite_extensions=["spatialite"])
