@@ -1,3 +1,4 @@
+import json
 import geojson
 from datasette import hookimpl
 from datasette.utils.asgi import Response
@@ -12,15 +13,21 @@ def register_output_renderer(datasette):
     }
 
 
-def render_geojson(datasette, columns, rows):
+def render_geojson(datasette, columns, rows, request):
     if not can_render_geojson(datasette, columns):
         from datasette.views.base import DatasetteError
 
         raise DatasetteError("SQL query must include a geometry column")
 
+    newline = bool(request.args.get("_nl", False))
     features = [row_to_geojson(row) for row in rows]
-    fc = geojson.FeatureCollection(features=features)
 
+    if newline:
+        # todo: stream this
+        lines = [json.dumps(feature) for feature in features]
+        return Response.text("\n".join(lines))
+
+    fc = geojson.FeatureCollection(features=features)
     return Response.json(dict(fc))
 
 
