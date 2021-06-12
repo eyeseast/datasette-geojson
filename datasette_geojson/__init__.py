@@ -13,14 +13,15 @@ def register_output_renderer(datasette):
     }
 
 
-def render_geojson(datasette, columns, rows, request):
+async def render_geojson(datasette, columns, rows, request, database):
     if not can_render_geojson(datasette, columns):
         from datasette.views.base import DatasetteError
 
         raise DatasetteError("SQL query must include a geometry column")
 
+    db = datasette.get_database(database)
     newline = bool(request.args.get("_nl", False))
-    features = [row_to_geojson(row) for row in rows]
+    features = [await row_to_geojson(row, db) for row in rows]
 
     if newline:
         # todo: stream this
@@ -38,15 +39,15 @@ def can_render_geojson(datasette, columns):
     return "geometry" in columns
 
 
-def row_to_geojson(row):
+async def row_to_geojson(row, db):
     "Turn a row with a geometry column into a geojson feature"
     row = dict(row)
-    geometry = parse_geometry(row.pop("geometry"))
+    geometry = await parse_geometry(row.pop("geometry"), db)
 
     return geojson.Feature(geometry=geometry, properties=row)
 
 
-def parse_geometry(geometry):
+async def parse_geometry(geometry, db):
     "Start with a string, or binary blob, or dict, and return a geometry dict"
     if isinstance(geometry, dict):
         return geometry
@@ -55,6 +56,10 @@ def parse_geometry(geometry):
         return geojson.loads(geometry)
 
     if isinstance(geometry, bytes):
-        raise ValueError("Can't parse geometry blob")
+        results = await db.execute(
+            "SELECT AsGeoJSON(:geometry)", {"geometry": geometry}
+        )
 
-    raise ValueError("Unknown type")
+        return geojson.loads(results.single_value())
+
+    raise ValueError(f"Unexpected geometry type: {type(geometry)}")

@@ -71,7 +71,3 @@ Now install the dependencies and tests:
 To run the tests:
 
     pytest
-
-```
-
-```
