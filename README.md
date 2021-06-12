@@ -25,7 +25,9 @@ geojson-to-sqlite boston.db neighborhoods neighborhoods.geojson --spatial-index 
 datasette serve boston.db --load-extension spatialite
 ```
 
-If you're using Spatialite, the geometry column will be in a binary format. Convert it back to regular GeoJSON with the `AsGeoJSON` function:
+If you're using Spatialite, the geometry column will be in a binary format. If not, make sure the `geometry` column is a well-formed [GeoJSON geometry](https://datatracker.ietf.org/doc/html/rfc7946#section-3.1). If you used `geojson-to-sqlite` or `shapefile-to-sqlite`, you should be all set.
+
+Run this query in Datasette and you'll see a link to download GeoJSON:
 
 ```sql
 select
@@ -37,7 +39,7 @@ select
   SqMiles,
   ShapeSTArea,
   ShapeSTLength,
-  AsGeoJSON(geometry) as geometry
+  geometry
 from
   neighborhoods
 order by
@@ -46,11 +48,9 @@ limit
   101
 ```
 
-Note that the geometry column needs to be explicitly converted to GeoJSON and _named_ `geometry` or you won't get the option to export GeoJSON. Run this query in Datasette and you'll see a link to download GeoJSON:
+Note that the geometry column needs to be explicitly _named_ `geometry` or you won't get the option to export GeoJSON. If you want to use a different column, rename it with `AS`: `SELECT other AS geometry FROM my_table`.
 
 ![export geojson](img/export-options.png)
-
-_If you're not using Spatialite, you can skip running `AsGeoJSON`, because the column will already be in the right format._
 
 ## Development
 
