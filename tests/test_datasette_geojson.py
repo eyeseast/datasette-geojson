@@ -111,15 +111,15 @@ async def test_render_spatialite_blob(spatial_database, feature_collection):
     )
 
     response = await datasette.client.get(url)
-    assert 500 == response.status_code  # we expect this to fail, for now
+    assert 200 == response.status_code
 
-    # fc = response.json()
-    # assert fc["type"] == "FeatureCollection"
-    # assert len(feature_collection["features"]) == len(fc["features"])
+    fc = response.json()
+    assert fc["type"] == "FeatureCollection"
+    assert len(feature_collection["features"]) == len(fc["features"])
 
-    # for feature, expected in zip(fc["features"], feature_collection["features"]):
-    #     assert feature["properties"]["Name"] == expected["properties"]["Name"]
-    #     assert feature["geometry"] == expected["geometry"]
+    for feature, expected in zip(fc["features"], feature_collection["features"]):
+        assert feature["properties"]["Name"] == expected["properties"]["Name"]
+        assert feature["geometry"] == expected["geometry"]
 
 
 @pytest.mark.asyncio
@@ -153,7 +153,7 @@ async def test_rows_to_geojson(database, feature_collection):
     db = datasette.get_database("test")
 
     results = await db.execute(f"SELECT Name, geometry FROM {TABLE_NAME}")
-    features = list(map(row_to_geojson, results.rows))
+    features = [await row_to_geojson(row, db) for row in results.rows]
 
     assert all(f.is_valid for f in features)
 
