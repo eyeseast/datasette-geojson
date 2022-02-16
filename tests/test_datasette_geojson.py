@@ -157,6 +157,17 @@ async def test_rows_to_geojson(database, feature_collection):
 
     assert all(f.is_valid for f in features)
 
+@pytest.mark.asyncio
+async def test_rows_with_null(database):
+    fc = geojson.load(DATA / "Neighborhoods_with_null.geojson")
+    import_features(database, "test_with_nulls", fc.features, spatialite=True)
+    datasette = Datasette([database], sqlite_extensions=["spatialite"])
+    db = datasette.get_database("test")
+    results = await db.execute(f"SELECT Name, geometry FROM test_with_nulls")
+
+    features = [await row_to_geojson(row, db) for row in results.rows]
+    assert all(f.is_valid for f in features)
+
 
 def decode_json_newlines(file):
     for line in file:

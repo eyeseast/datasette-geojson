@@ -49,6 +49,9 @@ async def row_to_geojson(row, db):
 
 async def parse_geometry(geometry, db):
     "Start with a string, or binary blob, or dict, and return a geometry dict"
+    if geometry is None:
+        return geometry
+
     if isinstance(geometry, dict):
         return geometry
 
