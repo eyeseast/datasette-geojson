@@ -157,15 +157,24 @@ async def test_rows_to_geojson(database, feature_collection):
 
     assert all(f.is_valid for f in features)
 
+
 @pytest.mark.asyncio
-async def test_rows_with_null(database):
-    fc = geojson.load(DATA / "Neighborhoods_with_null.geojson")
-    import_features(database, "test_with_nulls", fc.features, spatialite=True)
-    datasette = Datasette([database], sqlite_extensions=["spatialite"])
-    db = datasette.get_database("test")
-    results = await db.execute(f"SELECT Name, geometry FROM test_with_nulls")
+async def test_rows_with_null(spatial_database):
+    datasette = Datasette([spatial_database], sqlite_extensions=["spatialite"])
+    db = datasette.get_database("spatial")
+
+    # insert a null feature
+    await db.execute_write(
+        f"INSERT INTO {TABLE_NAME} (Name) VALUES ('Null village')",
+        block=True,
+    )
+
+    results = await db.execute(f"SELECT Name, geometry FROM {TABLE_NAME}")
 
     features = [await row_to_geojson(row, db) for row in results.rows]
+    null = next(f for f in features if f["properties"]["Name"] == "Null village")
+
+    assert null["geometry"] == None
     assert all(f.is_valid for f in features)
 
 
