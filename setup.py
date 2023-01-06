@@ -1,7 +1,7 @@
 from setuptools import setup
 import os
 
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 
 
 def get_long_description():
@@ -31,5 +31,5 @@ setup(
     install_requires=["datasette", "geojson"],
     extras_require={"test": ["pytest", "pytest-asyncio", "geojson-to-sqlite"]},
     tests_require=["datasette-geojson[test]"],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
 )
