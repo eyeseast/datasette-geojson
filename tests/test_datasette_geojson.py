@@ -1,3 +1,4 @@
+import base64
 import io
 import geojson
 import pytest
@@ -22,7 +23,11 @@ def feature_collection():
 @pytest.fixture
 def spatial_database(tmp_path, feature_collection):
     db_path = tmp_path / "spatial.db"
-    import_features(db_path, TABLE_NAME, feature_collection.features, spatialite=True)
+
+    # specify pk to make lookups easier
+    import_features(
+        db_path, TABLE_NAME, feature_collection.features, spatialite=True, pk="OBJECTID"
+    )
     return db_path
 
 
@@ -31,6 +36,12 @@ def database(tmp_path, feature_collection):
     db_path = tmp_path / "test.db"
     import_features(db_path, TABLE_NAME, feature_collection.features)
     return db_path
+
+
+@pytest.fixture
+def image():
+    path = DATA / "RoslindaleCC.JPG"
+    return path.read_bytes()
 
 
 @pytest.mark.asyncio
@@ -148,7 +159,7 @@ async def test_render_geojson_newlines(database, feature_collection):
 
 
 @pytest.mark.asyncio
-async def test_rows_to_geojson(database, feature_collection):
+async def test_rows_to_geojson(database):
     datasette = Datasette([database], sqlite_extensions=["spatialite"])
     db = datasette.get_database("test")
 
@@ -176,6 +187,31 @@ async def test_rows_with_null(spatial_database):
 
     assert null["geometry"] == None
     assert all(f.is_valid for f in features)
+
+
+@pytest.mark.asyncio
+async def test_binary_data(spatial_database, image):
+    datasette = Datasette([spatial_database], sqlite_extensions=["spatialite"])
+    db = datasette.get_database("spatial")
+    encodeded = base64.b64encode(image).decode("latin1")
+
+    # add a blob column
+    await db.execute_write(f"ALTER TABLE {TABLE_NAME} ADD COLUMN image BLOB")
+
+    # insert image
+    await db.execute_write(
+        f"UPDATE {TABLE_NAME} SET image = ? WHERE Name = 'Roslindale'", [image]
+    )
+
+    url = datasette.urls.row(spatial_database.stem, TABLE_NAME, 27, format="geojson")
+
+    response = await datasette.client.get(url)
+    assert 200 == response.status_code
+
+    fc = response.json()
+    properties = fc["features"][0]["properties"]
+
+    assert properties["image"] == {"$base64": True, "encoded": encodeded}
 
 
 def decode_json_newlines(file):
