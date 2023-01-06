@@ -12,4 +12,5 @@ dist/
 .DS_Store
 .vscode
 Pipfile
+Pipfile.lock
 *.db

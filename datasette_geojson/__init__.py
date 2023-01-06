@@ -66,3 +66,12 @@ async def parse_geometry(geometry, db):
         return geojson.loads(results.single_value())
 
     raise ValueError(f"Unexpected geometry type: {type(geometry)}")
+
+
+@hookimpl
+def prepare_connection(conn):
+    conn.create_function("pause", 0, pause)
+
+
+def pause():
+    return "Pause() is disabled"
