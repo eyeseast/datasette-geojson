@@ -1,6 +1,7 @@
 import json
 import geojson
 from datasette import hookimpl
+from datasette.utils import CustomJSONEncoder
 from datasette.utils.asgi import Response
 
 
@@ -19,6 +20,7 @@ async def render_geojson(datasette, columns, rows, request, database):
 
         raise DatasetteError("SQL query must include a geometry column")
 
+    encoder = CustomJSONEncoder()
     db = datasette.get_database(database)
     newline = bool(request.args.get("_nl", False))
     features = [await row_to_geojson(row, db) for row in rows]
@@ -29,7 +31,7 @@ async def render_geojson(datasette, columns, rows, request, database):
         return Response.text("\n".join(lines))
 
     fc = geojson.FeatureCollection(features=features)
-    return Response.json(dict(fc))
+    return Response.json(dict(fc), default=encoder.default)
 
 
 def can_render_geojson(datasette, columns):
@@ -66,3 +68,12 @@ async def parse_geometry(geometry, db):
         return geojson.loads(results.single_value())
 
     raise ValueError(f"Unexpected geometry type: {type(geometry)}")
+
+
+@hookimpl
+def prepare_connection(conn):
+    conn.create_function("pause", 0, pause)
+
+
+def pause():
+    return "Pause() is disabled"
