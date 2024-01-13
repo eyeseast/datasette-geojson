@@ -217,3 +217,21 @@ async def test_binary_data(spatial_database, image):
 def decode_json_newlines(file):
     for line in file:
         yield geojson.loads(line.strip())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("column_alias", ("geometry", "GEOMETRY"))
+async def test_link_to_geojson(spatial_database, column_alias):
+    datasette = Datasette([str(spatial_database)], sqlite_extensions=["spatialite"])
+
+    db = datasette.get_database(spatial_database.stem)
+    await db.execute_write(
+        f"create view v as SELECT Name, AsGeoJSON(geometry) as {column_alias} FROM {TABLE_NAME}"
+    )
+
+    # view page
+    url = datasette.urls.table(spatial_database.stem, "v")
+    response = await datasette.client.get(url)
+    html = response.text
+    assert 200 == response.status_code
+    assert ".geojson" in html

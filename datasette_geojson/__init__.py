@@ -38,7 +38,7 @@ def can_render_geojson(datasette, columns):
     """
     Check if there's a geometry column
     """
-    return "geometry" in columns
+    return "geometry" in {c.lower() for c in columns}
 
 
 async def row_to_geojson(row, db):
